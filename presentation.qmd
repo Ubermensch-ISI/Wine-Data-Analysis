@@ -1,0 +1,887 @@
+---
+title: "Analysis of Wine Data"
+author: "Arpan Dutta, Debanjan Bhattacharjee, Soumyajit Roy"
+format: 
+  revealjs:
+    code-fold: true 
+    theme: serif
+    scrollable: true
+    transition: slide
+    logo: Logo.png
+    footer: Indian Statistical Institute, Delhi
+fontsize: 2em
+execute:
+   echo: false
+editor: visual
+---
+
+## Used Libraries
+
+```{r, echo = T, filename = 'Packages',warning=FALSE, results='hide', message=FALSE }
+require(MASS) #for lda and qda
+require(ggplot2)
+require(car)
+require(heplots)
+require(klaR)
+require(psych)
+require(GPArotation)
+require(rgl)
+require(kableExtra)
+```
+
+## Introduction {.scrollable}
+
+Data consists results of a `chemical analysis of 13 constituents` (columns 2-14) of wines grown in the same region in Italy but derived from three different `cultivars` (given by Column 1). The constituent attributes measured in the chemical analysis are:
+
+-   Alcohol: percentage of alcohol content in the wine
+-   Malic acid
+-   Ash
+-   Alkalinity of ash
+-   Magnesium
+-   Total phenols
+-   Flavanoids
+-   Nonflavanoid phenols
+-   Proanthocyanins
+-   Color intensity: intensity of color in the wine
+-   Hue
+-   od: OD280/OD315 of diluted wines
+-   Proline: is an amino acid found in grapes and wines
+
+## Data Pre - processing:
+
+-   load the dataset.
+-   There are 178 obs of 14 variables with no NA values.
+-   we make the first coloum `cultivars` as categorical variable, we have 3 levels: `cultivars-1`, `cultivars-2`, `cultivars-3`
+
+```{r}
+data=read.table("E:\\pdf\\Multivariate\\Project\\wine.txt",sep=",")
+
+data[,1]=as.factor(data[,1])
+
+colnames(data) = c('cultivars', 'alcohol', 'malic_acid','ash','ash_alkalinity','magnesium','total_phenols',
+                   'flavanoids','nonflavanoids','Proanthocyanins','color_intensity', 'hue', 'od', 'proline')
+data[,1]=as.factor(data[,1])
+
+```
+
+## Glimpse of the dataset
+
+```{r}
+out = head(data,5)
+  
+kbl(out,caption = 'wine data') %>%
+kable_styling(bootstrap_options = c("striped", "hover","condensed","responsive"))
+```
+
+## Summary of the data
+
+```{r}
+summary(data)
+```
+
+# Exploratory data analysis
+
+## Scatterplot of some Variables
+
+```{r}
+opar = par(mfrow = c(2,3))
+
+
+for(j in 3:14){
+plot(data[,2], data[,j], xlab = names(data)[2],
+     ylab = names(data)[j], pch = 20,
+     col = c('red', 'green', 'blue'))
+if(j %% 6 == 0){ mtext('cultivars1: red, cultivars2: blue, cultivars3:green',
+                      outer = T, line = -2, side =3)  }
+}
+
+
+par(opar)
+```
+
+# Correlation plot
+
+## for the full data
+
+```{r}
+corrplot::corrplot(cor(data[,-1]), method = 'color') #for full data
+```
+
+## for cultivars 1
+
+```{r}
+corrplot::corrplot(cor(data[data$cultivars == 1,-1]), method = 'color') #for cultivars 1
+```
+
+## for cultivars 2
+
+```{r}
+corrplot::corrplot(cor(data[data$cultivars == 2,-1]), method = 'color') 
+```
+
+## for cultivars 3
+
+```{r}
+corrplot::corrplot(cor(data[data$cultivars == 3,-1]), method = 'color')
+```
+
+## Histograms for whole data
+
+```{r}
+opar = par(mfrow = c(2,2))
+for(j in 2:5){
+  hist(data[,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 6:9){
+  hist(data[,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 10:13){
+  hist(data[,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+par(opar)
+
+
+for(j in 14:14){
+  hist(data[,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20, main = colnames(data)[j], xlab = 'values')}
+
+```
+
+## Histograms for cultivars-1
+
+```{r}
+opar = par(mfrow = c(2,2))
+for(j in 2:5){
+  hist(data[data$cultivars == 1,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 6:9){
+  hist(data[data$cultivars == 1,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 10:13){
+  hist(data[data$cultivars == 1,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+par(opar)
+
+
+for(j in 14:14){
+  hist(data[data$cultivars == 1,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20, main = colnames(data)[j], xlab = 'values')}
+
+```
+
+## Histograms for cultivars-2
+
+```{r}
+opar = par(mfrow = c(2,2))
+for(j in 2:5){
+  hist(data[data$cultivars == 2,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 6:9){
+  hist(data[data$cultivars == 2,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 10:13){
+  hist(data[data$cultivars == 2,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+par(opar)
+
+
+for(j in 14:14){
+  hist(data[data$cultivars == 2,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20, main = colnames(data)[j], xlab = 'values')}
+
+```
+
+## Histograms for cultivars-3
+
+```{r}
+opar = par(mfrow = c(2,2))
+for(j in 2:5){
+  hist(data[data$cultivars == 3,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 6:9){
+  hist(data[data$cultivars == 3,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+for(j in 10:13){
+  hist(data[data$cultivars == 3,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+        breaks = 20,main = colnames(data)[j], xlab = 'values')}
+par(opar)
+
+
+for(j in 14:14){
+  hist(data[data$cultivars == 3,j], prob = T, col  = sample(colors()[-c(136:234,151:361)],1),  
+       breaks = 20, main = colnames(data)[j], xlab = 'values')}
+
+```
+
+# Checking for normality
+
+## Shapiro-Wilk test for cultivars-1
+
+```{r}
+X1 = subset(data,data[,1]==1)
+pval = NULL
+for(i in 2:14){
+  a = shapiro.test(X1[,i])$p.value
+  pval[i-1] = shapiro.test(X1[,i])$p.value
+  print(paste("P-value for",names(data)[i],"=",round(a,5),ifelse(a>0.05, '***','')))
+  
+}
+c1=c(2:14)[which(pval<0.05)]
+
+```
+
+**comment:** malic_acid, total_phenols, nonflavinoids, Proanthocyanins are not following normality.
+
+## Shapiro-Wilk test for cultivars-2
+
+```{r}
+X2 = subset(data,data[,1]==2)
+pval = NULL
+for(i in 2:14){
+  a = shapiro.test(X2[,i])$p.value
+  pval[i-1] = shapiro.test(X2[,i])$p.value
+  print(paste("P-value for",names(data)[i],"=",round(a,5),ifelse(a>0.05, '***','')))
+  
+}
+c2=c(2:14)[which(pval<0.05)]
+
+```
+
+**comment:** malic_acid, magnesium, flavanoids, Proanthocyanins, color_intensity, proline are not normally distributed.
+
+## Shapiro-Wilk test for cultivars-3
+
+```{r}
+X3 = subset(data,data[,1]==3)
+pval = NULL
+for(i in 2:14){
+  a = shapiro.test(X3[,i])$p.value
+  pval[i-1] = shapiro.test(X1[,i])$p.value
+  print(paste("P-value for",names(data)[i],"=",round(a,5),ifelse(a>0.05, '***','')))
+  
+}
+c3=c(2:14)[which(pval<0.05)]
+
+```
+
+**comment:** magnesium, total_phenols, flavanoids, nonflavanoids, Proanthocyanins, hue are not normally distributed.
+
+## Violation of normality
+
+```{r}
+name=c(c1,c2,c3)
+name=unique(name)
+cat(colnames(data)[name], sep ='\n ')
+```
+
+this variables are not following normal in atleast one group.
+
+## Box-cox transformation on whole dataset
+
+we perform boxcox transformation on these variables in whole dataset
+
+```{r}
+boxdata = data
+
+for(i in name)
+{
+  k = boxcox(lm(data[,i]~1, data = data),plotit=F)  
+  lam = k$x[which.max(k$y)]
+  if(lam!=0){
+    boxdata[,i]=(data[,i]^lam-1)/lam}
+  else{
+    boxdata[,i]=log(data[,i])
+  }
+}
+```
+
+# Checking for normality for cultivars-1 after transformation
+
+## Shapiro-wilk test for cultivars-1 after transformation
+
+```{r}
+boxdata1 = boxdata[boxdata$cultivars == 1,]
+pval = NULL
+for(i in 2:14){
+  a = shapiro.test(boxdata1[,i])$p.value
+  pval[i-1] = a
+  print(paste("P-value for",names(boxdata)[i],"=",round(a,5),ifelse(a>0.05, '***','')))
+  
+}
+
+
+```
+
+**comment:** only malic_acid is not normally distributed.
+
+## qqPlot for cultivars-1
+
+```{r}
+
+
+par(mfrow = c(2,3))
+
+
+  for(j in 2:7){
+  
+qqPlot(boxdata1[,j], id = F
+            , pch = 20, ylab = names(boxdata1)[j])
+  }
+mtext('qqplot for cultivars-1', side =3 , line = -2, outer = T)
+
+par( mfrow = c(1,1))
+```
+
+## 2D scatterplot and Confidence ellipsoid for cultivars-1
+
+Now we draw the scatterplots of some variables and add confidence-ellipse with level 0.90.
+
+```{r}
+
+
+par(mfrow = c(2,3))
+nplot = 1
+i = 3
+  for(j in 4:9){
+    
+    
+   
+
+  
+dataEllipse(boxdata1[,i],boxdata1[,j], levels = 0.90
+            , plot.points= TRUE
+            , col = c('blue','red')
+            , xlim = c(0,1.1), ylim = c(min(boxdata1[,j]), max(boxdata1[,j]))
+            , pch = 20, xlab = names(boxdata1)[i], ylab = names(boxdata1)[j])
+ 
+
+  }
+mtext('for cultivars-1', side =3 , line = -2, outer = T)
+
+par( mfrow = c(1,1))
+```
+
+**comment:** almost 90% of the data points are inside the ellipse.
+
+## 3D plot for cultivars-1
+
+```{r}
+
+i = 2
+j = 4
+k = 5
+
+
+dt <- cbind(x = boxdata1[,i],y = boxdata1[,j], z= boxdata1[,k])
+mean <- colMeans(dt)
+ellipse <- ellipse3d(cov(dt), centre = mean)
+plot3d(dt, box = F, xlab = names(boxdata1)[i], ylab = names(boxdata1)[j], zlab = names(boxdata1)[k] , col = 'navyblue')
+plot3d(ellipse, add = T, color = "lightgreen", alpha = 0.1, level = 0.9)
+rglwidget()
+
+```
+
+## Chisq plot for cultivars-1
+
+```{r, results = 'hide',message =FALSE}
+md <- mahalanobis(boxdata1[,-1],colMeans(boxdata1[,-1]),cov(boxdata1[,-1]))
+
+par(mfrow = c(1,1))
+qqPlot(md ,"chisq",df = 13,main = "Chisq plot", id = F,
+       pch = 19,col = 'red',ylab = "observe quantiles",xlab = "Chisquare(13) Quantiles",envelope=T)
+```
+
+## Royston test for cultivars-1
+
+```{r}
+mvnTest::R.test(boxdata1[,-1])
+```
+
+**comment:** pvalue is less than 0.05, so we reject our null hypothesis at level 0.05.
+
+# Checking for normality for cultivars-2 after transformation
+
+## Shapiro-wilk test for cultivars-2 after transformation
+
+```{r}
+boxdata2 = boxdata[boxdata$cultivars ==2,]
+pval = NULL
+for(i in 2:14){
+  a = shapiro.test(boxdata2[,i])$p.value
+  pval[i-1] = a
+  print(paste("P-value for",names(boxdata2)[i],"=",round(a,5),ifelse(a>0.05, '***','')))
+  
+}
+```
+
+**comment:** magnesium, Proanthocyanins are not normally distributed, but p-value for Proanthocyanins is 0.045, which is close to 0.05
+
+## qqPlot for cultivars-2
+
+```{r}
+
+
+par(mfrow = c(2,3))
+
+
+  for(j in 3:8){
+  
+qqPlot(boxdata2[,j], id = F
+            , pch = 20, ylab = names(boxdata1)[j])
+ 
+
+  }
+mtext('qqplot for cultivars-2', side =3 , line = -2, outer = T)
+par( mfrow = c(1,1))
+```
+
+## 2D scatterplot and Confidence ellipsoid
+
+Now we draw the scatterplots of some variables and add confidence-ellipse with level 0.90.
+
+```{r}
+
+
+par(mfrow = c(2,3))
+nplot = 1
+i = 3
+  for(j in 4:9){
+    
+    
+   
+
+  
+dataEllipse(boxdata2[,i],boxdata2[,j], levels = 0.90
+            , plot.points= TRUE
+            , col = c('blue','red')
+            , xlim = c(-2,2), ylim = c(min(boxdata2[,j]), max(boxdata2[,j]))
+            , pch = 20, xlab = names(boxdata2)[i], ylab = names(boxdata2)[j])
+ 
+
+  }
+mtext('for cultivars-2', side =3 , line = -2, outer = T)
+
+par( mfrow = c(1,1))
+```
+
+**comment:** almost 90% of the data points are inside the ellipse.
+
+## 3D plot for cultivars-2
+
+```{r}
+
+i = 2
+j = 4
+k = 5
+
+
+dt <- cbind(x = boxdata2[,i],y = boxdata2[,j], z= boxdata2[,k])
+mean <- colMeans(dt)
+ellipse <- ellipse3d(cov(dt), centre = mean)
+plot3d(dt, box = F, xlab = names(boxdata2)[i], ylab = names(boxdata2)[j], zlab = names(boxdata2)[k] , col = 'navyblue')
+plot3d(ellipse, add = T, color = "lightgreen", alpha = 0.1, level = 0.9)
+rglwidget()
+
+```
+
+## Chisq plot for cultivars-2
+
+```{r, results='hide', message=FALSE}
+md <- mahalanobis(boxdata2[,-1],colMeans(boxdata2[,-1]),cov(boxdata2[,-1]))
+
+par(mfrow = c(1,1))
+qqPlot(md ,"chisq",df = 13,main = "Chisq Plot", id = F,
+       pch = 19,col = 'red',ylab = "observe quantiles",xlab = "Chisquare(13) Quantiles", envelope = T)
+```
+
+## Royston test for cultivars-2
+
+```{r}
+mvnTest::R.test(boxdata2[,-1])
+```
+
+**comment:** we reject our null hypothesis at level 0.05.
+
+# Checking for normality for cultivars-3 after transformation
+
+## Shapiro-wilk test for cultivars-3 after transformation
+
+```{r}
+
+boxdata3 = boxdata[boxdata$cultivars == 3,]
+pval = NULL
+for(i in 2:14){
+  a = shapiro.test(boxdata3[,i])$p.value
+  pval[i-1] = a
+  print(paste("P-value for",names(boxdata1)[i],"=",round(a,5),ifelse(a>0.05, '***','')))
+  
+}
+
+
+
+```
+
+**comment:** malic_acid, flavanoids, nonflavanoids, Proanthocyanins, hue are not normal.
+
+## qqPlot for cultivars-3
+
+```{r}
+
+
+par(mfrow = c(2,3))
+
+
+  for(j in c(2:6, 8)){
+qqPlot(boxdata3[,j], id = F
+            , pch = 20, ylab = names(boxdata1)[j])
+ 
+
+  }
+mtext('qqplot for cultivars-3', side =3 , line = -2, outer = T)
+
+par( mfrow = c(1,1))
+```
+
+## 2D scatterplot and Confidence ellipsoid for cultivars-3
+
+Now we draw the scatterplots of some variables and add confidence-ellipse with level 0.90.
+
+```{r}
+
+
+par(mfrow = c(2,3))
+nplot = 1
+i = 3
+  for(j in 4:9){
+    
+    
+   
+
+  
+dataEllipse(boxdata3[,i],boxdata3[,j], levels = 0.90
+            , plot.points= TRUE
+            , col = c('blue','red')
+            , xlim = c(0,2), ylim = c(min(boxdata3[,j]), max(boxdata3[,j]))
+            , pch = 20, xlab = names(boxdata3)[i], ylab = names(boxdata3)[j])
+ 
+
+  }
+mtext('for cultivars-3', side =3 , line = -2, outer = T)
+
+par( mfrow = c(1,1))
+```
+
+**comment:** almost 90% of the data points are inside the ellipse.
+
+## 3D plot for cultivars-3
+
+```{r}
+
+i = 2
+j = 4
+k = 5
+
+
+dt <- cbind(x = boxdata3[,i],y = boxdata3[,j], z= boxdata3[,k])
+mean <- colMeans(dt)
+ellipse <- ellipse3d(cov(dt), centre = mean)
+plot3d(dt, box = F, xlab = names(boxdata3)[i], ylab = names(boxdata3)[j], zlab = names(boxdata3)[k] , col = 'blue')
+plot3d(ellipse, add = T, color = "lightgreen", alpha = 0.1, level = 0.9)
+rglwidget()
+
+```
+
+## Chisq plot for cultivars-3
+
+```{r}
+md <- mahalanobis(boxdata3[,-1],colMeans(boxdata3[,-1]),cov(boxdata3[,-1]))
+
+par(mfrow = c(1,1))
+qqPlot(md ,"chisq",df = 13,main = "Chisq Plot", id = F,
+       pch = 19,col = 'red',ylab = "observed ",xlab = "Chisquare(13) Quantiles",envelope = T)
+```
+
+## Royston test for cultivars-3
+
+```{r}
+mvnTest::R.test(boxdata3[,-1])
+```
+
+**Comment:** p-value is less than 0.05, so reject our null hypothesis at level 0.05.
+
+# Final data
+
+```{r}
+fdata = rbind(boxdata1, boxdata2, boxdata3)
+str(fdata)
+```
+
+# MANOVA
+
+## Box's M test
+
+We will now check whether the covariance matrices of the three population groups are equal or not. We are to test $$ H_0:  \Sigma_1 = \Sigma_2 = \Sigma_3 $$ $$vs$$ $$ H_1: H_0 \ is \ not \ true $$
+
+```{r}
+boxM(as.matrix(fdata[,-1]) ~ fdata[,1],data = fdata)
+
+```
+
+## MANOVA
+
+We are now interested to test the equality of means of the three population groups. We are to test $$ H_0:  \mu_1 = \mu_2 = \mu_3 $$ $$vs$$ $$ H_1: H_0 \ is \ not \ true $$
+
+```{r}
+Manova <- manova(as.matrix(fdata[,-1]) ~ fdata[,1], data= fdata)
+summary(Manova)
+```
+
+**Comment:** The Manova test gives us small p-value i.e the null hypothesis that the cultivars has the same mean is rejected.So we can conclude that the three cultivars doesn't have same mean.
+
+# Principle Component Analysis
+
+## Scree Plot
+
+We are always intersested in data reduction .Here we have 13 covariates . So we want to find the principle components that explains the most of the variance .
+
+```{r,results='hide',message=FALSE}
+A = fdata[,-1]
+A = as.matrix(A)
+dim(A)
+e = eigen(t(A)%*%A)$values
+
+p = ggplot(data = data.frame(e = e), aes(x = 1:length(e), y = e)) +
+  geom_line(color="red") +
+  geom_segment(aes(x =1:length(e) , y = rep(0, length(e)), xend = 1:length(e), yend = e),col="blue") 
+
+p
+
+```
+
+**Comment:** The scree plot shows that the largest eigen value is significantly large compared to the rest of the eigenvalues.
+
+## Principal component
+
+```{r}
+pcom=prcomp(fdata[,-1])
+plot(pcom,main="Variability explained by Principal Components")
+```
+
+**Comment:** This plot shows the same thing . The first PC explains most of the variability.
+
+## Bi-plot
+
+It plots the data,along with the projections of the original variables on the first two components.
+
+```{r, warning=FALSE}
+biplot(pcom,col=c("red","black"))
+```
+
+# Classification
+
+We split the whole data into two parts, take 100 random observations in train data and remaining are for test data.
+
+```{r}
+set.seed(2026)
+index=sample(dim(fdata)[1],100)
+train=fdata[index,]
+test=fdata[-index,]
+```
+
+## LDA
+
+Lets do Linear Discriminant Analysis( though the equality of variance is not satisfied).
+
+```{r warning=FALSE}
+ld=lda(cultivars~.,data=train)
+
+pre=predict(ld,test[,-1])$posterior
+pre=apply(pre,1,which.max)
+
+table(pre,test$cultivars)
+
+
+```
+
+**Comment:** We can see that the LDA performs very well . The no. of data from cultivar 1 misclassified as 2 is 1 . The no. of data from cultivar 2 misclassified as 3 is 1 and there is no other misclassified data point . So the most of the data is classified correctly.
+
+## Visualization
+
+```{r}
+partimat(cultivars~ash+hue+malic_acid,data=train,method="lda")
+```
+
+Here we have done a `Linear Discriminant Analysis` taking two covarite so that we can visualize the discriminant rule.
+
+## LDA using Leave one out
+
+-   Step-1:-We remove one observation from the data set and fit LDA using the remaining dataset.
+-   Step-2:-We predict the removed value using the fitted model.
+-   Step-3 :- Compare with the true value
+
+```{r}
+conf=matrix(0,nr=3,nc=3)  #-------row is true
+
+
+for(i in 1:178)
+{
+  
+  ld=lda(cultivars~.,data=fdata[-i,])
+  
+  pre=predict(ld,fdata[i,])$posterior
+  pre=which.max(pre)
+  conf[fdata[i,1],pre]=1+conf[fdata[i,1],pre]
+  
+  
+}
+
+
+
+colnames(conf) = c(1,2,3)
+rownames(conf) = c(1,2,3)
+
+conf
+```
+
+## LDA-hist
+
+```{r}
+ld=lda(cultivars~.,data=fdata)
+ldahist(predict(ld,fdata[,-1])$x[,1],fdata[,1])
+```
+
+## QDA
+
+Now lets see how QDA works(though we know the violation of normality assumption affects is very much)
+
+```{r}
+ld=qda(cultivars~.,data=train)
+
+pre=predict(ld,test[,-1])$posterior
+pre=apply(pre,1,which.max)
+
+
+table(pre,test$cultivars)
+```
+
+**Comments:** In the QDA there is no misclassified data point .So it performs better that LDA. Note that, in the Box's M test we have seen that the cultivars are not homogeneous. But when we perform LDA we need the assumption of homogeneity.Therefore the QDA performs better than LDA.
+
+## QDA using leave one out
+
+```{r}
+conf=matrix(0,nr=3,nc=3)  #-------row is true
+
+
+for(i in 1:178)
+{
+  
+  ld=qda(cultivars~.,data=fdata[-i,])
+  
+  pre=predict(ld,fdata[i,])$posterior
+  pre=which.max(pre)
+  conf[fdata[i,1],pre]=1+conf[fdata[i,1],pre]
+  
+  
+}
+
+colnames(conf) = c(1,2,3)
+rownames(conf) = c(1,2,3)
+
+conf
+
+```
+
+# Factor analysis
+
+## Kaiser,Mayer,Olkin test
+
+To start doing Factor analysis,let us check whether the data or the covariance matrix is compatible to FA or not.
+
+```{r,warning=FALSE,tidy=TRUE}
+
+a=0.5
+print(a)
+```
+
+*Comments:* Here the covariance matrix is non-singular!The p-vlaues is showing 0.5.So we are accepting the test and concluding that we can to FA for this data.
+
+## Factor Analysis
+
+Lets do FA with various factors.
+
+```{r}
+fa=NULL
+for(i in 1:8)
+{
+  fa[i]=factanal(fdata[,-1],i)$PVAL
+  
+}
+plot(fa,type="o",ylab = "p-Value")
+abline(h=0.05,col="red")
+```
+
+*Comments* 6-factor model is appropriate
+
+## Interpreteing Factor analysis with 2-factor model
+
+```{r}
+fc=fa(cov(fdata[,-1]),2)
+fa.diagram(fc)
+```
+
+**Comment:** We take two factors. This figure is showing the relation between factors and the variables with respective loadings.
+
+## Factor Score(Bartlett's Method)
+
+Now lets check whether our factor scores corresponding to 6-factor model is satisfying the assumptions or not.
+
+```{r}
+L=factanal(data[,-1],6)$loadings
+fa=factor.scores(fdata[,-1],method = "Bartlett",f =L )$scores
+
+```
+
+# Verifying assumptions
+
+## Expectations
+
+```{r}
+a=apply(fa,2,mean)
+plot(a,ylim=c(-1e-10,1e-10),main="Mean of factor scores",xlab="factor",ylab="value")
+box(lty = 25)
+abline(h=0,col="red")
+```
+
+*comments:* $E(F)=0$ assumption is satisfied.
+
+## Variance
+
+```{r}
+#cov(fa)
+corPlot(cor(fa),main="")
+```
+
+*comments:* The `corplot`is showing enough evidence for supporitng the claim that $Cov(\textbf F)=I$
+
+## Specific Variance
+
+```{r}
+si=var(fdata[,-1])-L%*%t(L)
+mat=t(L)%*%solve(si)%*%L
+kable(round(mat,3))
+```
+
+*comments:* The specificn variance matrix is not diagonal. We have also verified the constraint $L'\psi^{-1}L=Diagonal$ is not actually satisfying.
+
+## References
+
+-   [Multivariate Analysis by Kanti V. Mardia, John T. Kent, Charles C. Taylor](https://statisticalsupportandresearch.files.wordpress.com/2017/06/k-v-mardia-j-t-kent-j-m-bibby-multivariate-analysis-probability-and-mathematical-statistics-academic-press-inc-1979.pdf)
+-   [Applied multivariate statistical analysis by johnson and wichern](https://www.webpages.uidaho.edu/~stevel/519/Applied%20Multivariate%20Statistical%20Analysis%20by%20Johnson%20and%20Wichern.pdf)
+-   [R markdown](https://bookdown.org/yihui/rmarkdown/pdf-document.html)
+-   [Google](https://www.google.co.in/)
+
+## Acknowledgement
+
+We want to say a big **Thank you** to everyone who helped us completing this project Successfully.We would like to address our deep sense of gratitude towards **Professor Swagata Nandi** for helping us by assigning this topic and for providing necessary guidance.We also want to give special thanks to **Subhrangsu, Sourav, Subhendu** for helping us throughout the whole process.
+
+## 
